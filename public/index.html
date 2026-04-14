@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Receipt Upload</title>
+  <link rel="stylesheet" href="css/cropper.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ── Quality Warning Modal ────────────────────────────────────────────── -->
+  <div id="qualityModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="qualityTitle">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-emoji">📸</div>
+      <h2 id="qualityTitle">Photo checklist</h2>
+      <p class="modal-lead">Before you take a photo, make sure:</p>
+      <ul class="checklist">
+        <li>The receipt is laid completely <strong>flat</strong> on a clean surface — no curling or folding</li>
+        <li>The area is <strong>well lit</strong> — avoid shadows and harsh backlighting</li>
+        <li>All text is <strong>clearly readable</strong> and in focus</li>
+        <li>The <strong>entire receipt</strong> fits within the frame</li>
+      </ul>
+      <p class="modal-note">Blurry or dark photos may be rejected and need to be resubmitted.</p>
+      <div class="modal-actions">
+        <button id="warnCancel" class="btn btn-ghost">Cancel</button>
+        <button id="warnContinue" class="btn btn-primary">Got it, upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Crop Modal ───────────────────────────────────────────────────────── -->
+  <div id="cropModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="cropTitle">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card modal-card--crop">
+      <h2 id="cropTitle">Crop receipt</h2>
+      <p class="modal-lead">Drag to position. Make sure the full receipt is visible.</p>
+      <div class="crop-wrap">
+        <img id="cropImage" alt="Receipt to crop">
+      </div>
+      <div class="modal-actions">
+        <button id="cropCancel" class="btn btn-ghost">Cancel</button>
+        <button id="cropConfirm" class="btn btn-primary">Use this crop</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Page ─────────────────────────────────────────────────────────────── -->
+  <div class="page">
+
+    <header class="header">
+      <div class="header-inner">
+        <span class="header-icon">⚾</span>
+        <div>
+          <h1>Expense Receipt</h1>
+          <p>Submit a receipt for reimbursement</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <form id="expenseForm" novalidate>
+
+        <!-- Receipt upload -->
+        <section class="card" id="uploadCard">
+          <h2 class="card-title">Receipt <span class="required-star">*</span></h2>
+
+          <input type="file" id="fileInput" accept="image/*,application/pdf" class="sr-only">
+
+          <div id="uploadPrompt" class="upload-prompt">
+            <div class="upload-icon">📎</div>
+            <p class="upload-label">Photo, camera, or PDF</p>
+            <button type="button" id="uploadBtn" class="btn btn-primary btn-upload">
+              Upload Receipt
+            </button>
+          </div>
+
+          <div id="filePreview" class="file-preview hidden">
+            <div id="imagePreview" class="img-preview hidden">
+              <img id="previewImg" alt="Receipt preview">
+            </div>
+            <div id="pdfPreview" class="pdf-preview hidden">
+              <span class="pdf-icon">📄</span>
+              <span id="pdfName" class="pdf-name"></span>
+            </div>
+            <button type="button" id="changeFileBtn" class="btn btn-ghost btn-sm">
+              ↩ Change file
+            </button>
+          </div>
+
+          <p id="uploadError" class="field-error hidden">Please upload a receipt before submitting.</p>
+        </section>
+
+        <!-- Expense details -->
+        <section class="card">
+          <h2 class="card-title">Expense details</h2>
+
+          <div class="field" id="field-nickname">
+            <label for="nickname">Your nickname <span class="required-star">*</span></label>
+            <input type="text" id="nickname" name="nickname"
+                   placeholder="e.g. Mo, Flo, Chris…"
+                   autocomplete="nickname" required>
+            <p class="field-error hidden"></p>
+          </div>
+
+          <div class="field" id="field-date">
+            <label for="date">Date of receipt <span class="required-star">*</span></label>
+            <input type="date" id="date" name="date" required>
+            <p class="field-error hidden"></p>
+          </div>
+
+          <div class="field" id="field-category">
+            <label for="category">Category <span class="required-star">*</span></label>
+            <div class="select-wrap">
+              <select id="category" name="category" required>
+                <option value="">Select category…</option>
+                <option value="Gas">Gas</option>
+                <option value="Accommodation">Accommodation</option>
+                <option value="Car Rental">Car Rental</option>
+                <option value="Umpire">Umpire</option>
+              </select>
+            </div>
+            <p class="field-error hidden"></p>
+          </div>
+
+          <!-- Conditional: hotel name (Accommodation) -->
+          <div class="field hidden" id="field-hotelName">
+            <label for="hotelName">Hotel / place name <span class="required-star">*</span></label>
+            <input type="text" id="hotelName" name="hotelName"
+                   placeholder="e.g. Blue Mansion Hotel">
+            <p class="field-error hidden"></p>
+          </div>
+
+          <!-- Conditional: rental company (Car Rental) -->
+          <div class="field hidden" id="field-rentalCompany">
+            <label for="rentalCompany">Rental company <span class="required-star">*</span></label>
+            <input type="text" id="rentalCompany" name="rentalCompany"
+                   placeholder="e.g. Europcar, Sixt…">
+            <p class="field-error hidden"></p>
+          </div>
+
+          <div class="field" id="field-opponent">
+            <label for="opponent">Opponent <span class="required-star">*</span></label>
+            <div class="select-wrap">
+              <select id="opponent" name="opponent" required>
+                <option value="">Select opponent…</option>
+                <option value="Paderborn Untouchables">Paderborn Untouchables</option>
+                <option value="Bonn Capitals">Bonn Capitals</option>
+                <option value="Hamburg Stealers">Hamburg Stealers</option>
+                <option value="Hünstetten Storms">Hünstetten Storms</option>
+                <option value="Dortmund Wanderers">Dortmund Wanderers</option>
+                <option value="other">Other…</option>
+              </select>
+            </div>
+            <p class="field-error hidden"></p>
+          </div>
+
+          <!-- Conditional: custom opponent -->
+          <div class="field hidden" id="field-opponentOther">
+            <label for="opponentOther">Opponent name <span class="required-star">*</span></label>
+            <input type="text" id="opponentOther" name="opponentOther"
+                   placeholder="Enter opponent name">
+            <p class="field-error hidden"></p>
+          </div>
+
+          <div class="field" id="field-matchup">
+            <label for="matchup">Matchup <span class="required-star">*</span></label>
+            <div class="select-wrap">
+              <select id="matchup" name="matchup" required>
+                <option value="">Select matchup…</option>
+                <option value="first">First</option>
+                <option value="second">Second</option>
+              </select>
+            </div>
+            <p class="field-error hidden"></p>
+          </div>
+
+          <div class="field" id="field-amount">
+            <label for="amount">Total amount <span class="required-star">*</span></label>
+            <div class="prefix-wrap">
+              <span class="prefix">€</span>
+              <input type="number" id="amount" name="amount"
+                     placeholder="0.00" min="0.01" step="0.01" required>
+            </div>
+            <p class="field-error hidden"></p>
+          </div>
+        </section>
+
+        <!-- Reimbursement -->
+        <section class="card">
+          <h2 class="card-title">Reimbursement</h2>
+          <label class="check-label">
+            <input type="checkbox" id="needsReimbursement" name="needsReimbursement">
+            <span class="check-box"></span>
+            <span class="check-text">
+              <strong>I need to be reimbursed</strong>
+              <small>I paid out of my own pocket and haven't been paid back yet</small>
+            </span>
+          </label>
+        </section>
+
+        <!-- Optional IBAN -->
+        <section class="card card--collapsible">
+          <button type="button" id="ibanToggle" class="collapsible-trigger" aria-expanded="false">
+            <span>Haven't shared your IBAN yet? Add it here</span>
+            <span class="chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="ibanSection" class="collapsible-body hidden">
+            <p class="iban-note">
+              Only fill this in if you haven't sent me your bank details before.
+              I only need this once per person.
+            </p>
+            <div class="field">
+              <label for="fullName">Full name</label>
+              <input type="text" id="fullName" name="fullName"
+                     placeholder="e.g. Moritz Jödicke">
+            </div>
+            <div class="field">
+              <label for="iban">IBAN</label>
+              <input type="text" id="iban" name="iban"
+                     placeholder="DE89 3704 0044 0532 0130 00"
+                     autocomplete="off" spellcheck="false" inputmode="text">
+            </div>
+          </div>
+        </section>
+
+        <!-- Submit -->
+        <div class="submit-row">
+          <button type="submit" id="submitBtn" class="btn btn-primary btn-submit">
+            <span id="submitLabel">Submit receipt</span>
+            <span id="submitSpinner" class="spinner hidden" aria-hidden="true"></span>
+          </button>
+        </div>
+
+      </form>
+    </main>
+
+    <!-- ── Success screen ──────────────────────────────────────────────────── -->
+    <div id="successScreen" class="success-screen hidden" role="status">
+      <div class="success-inner">
+        <div class="success-emoji">✅</div>
+        <h2>Receipt submitted!</h2>
+        <p id="successMsg">Your expense has been recorded. Sammy will sort the reimbursement soon.</p>
+        <p id="missingIbanMsg" class="warn-msg hidden">
+          ⚠️ No IBAN on file for your nickname — a QR code could not be generated.
+          Please use the IBAN field next time, or send it to Sammy directly.
+        </p>
+        <button type="button" id="submitAnotherBtn" class="btn btn-primary">
+          Submit another receipt
+        </button>
+      </div>
+    </div>
+
+  </div><!-- .page -->
+
+  <script src="js/cropper.min.js"></script>
+  <script src="js/pdf-lib.min.js"></script>
+  <script src="js/heic2any.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
