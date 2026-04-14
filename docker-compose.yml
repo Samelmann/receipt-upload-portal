@@ -1,11 +1,23 @@
 services:
   app:
     build: .
-    ports:
-      - "3000:3000"
+    container_name: upload-page
+    restart: unless-stopped
     volumes:
       - ./data:/app/data
       - ./config:/app/config
     env_file:
       - .env
-    restart: unless-stopped
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.receipts.rule=Host(`upload.samelmann.de`)"
+      - "traefik.http.routers.receipts.entrypoints=websecure"
+      - "traefik.http.routers.receipts.tls.certresolver=cloudflare"
+      - "traefik.http.services.receipts.loadbalancer.server.port=3000"
+
+networks:
+  proxy:
+    external: true
