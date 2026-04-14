@@ -1,11 +1,11 @@
-const express = require('express');
-const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { generateQRCode } = require('../utils/qrGenerator');
+const { generateQRCode, generateQRBuffer } = require('../utils/qrGenerator');
 const { appendRow } = require('../utils/csv');
 const { toSafeFilePart, toGermanDate, buildDescription } = require('../utils/helpers');
+const googleEnabled = !!(process.env.DRIVE_AUSGABEN_FOLDER_ID && process.env.SHEET_ID);
+const googleApi = googleEnabled ? require('../utils/google') : null;
 
 // ── IBAN lookup ────────────────────────────────────────────────────────────────
 
@@ -35,7 +35,7 @@ const upload = multer({
 
 // ── Route ──────────────────────────────────────────────────────────────────────
 
-router.post('/', upload.single('receipt'), async (req, res) => {
+const handler = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No receipt file received.' });
@@ -45,6 +45,7 @@ router.post('/', upload.single('receipt'), async (req, res) => {
       nickname,
       date,
       category,
+      carUsed = '',
       hotelName = '',
       rentalCompany = '',
       opponent,
@@ -62,6 +63,12 @@ router.post('/', upload.single('receipt'), async (req, res) => {
 
     const matchNum = matchup === 'first' ? '1' : '2';
     const wantsReimbursement = needsReimbursement === 'true';
+
+    // ── Sync IBANs from Kontodaten before lookup (best-effort) ──────────────
+    if (googleEnabled && process.env.KONTODATEN_SHEET_ID) {
+      try { await googleApi.syncIbansFromKontodaten(); }
+      catch (err) { console.warn('IBAN sync skipped:', err.message); }
+    }
 
     // ── Resolve IBAN ────────────────────────────────────────────────────────
     const ibans = getIBANs();
@@ -95,7 +102,7 @@ router.post('/', upload.single('receipt'), async (req, res) => {
     const pdfFilename = `${dateSafe}_${nickSafe}_${oppSafe}-${matchNum}_${catSafe}_${amountSafe}EUR.pdf`;
     const qrFilename  = `${dateSafe}_${nickSafe}_${amountSafe}EUR_${oppSafe}-${matchNum}.png`;
 
-    // ── Save PDF ────────────────────────────────────────────────────────────
+    // ── Save PDF locally (backup) ───────────────────────────────────────────
     const receiptDir = path.join(__dirname, '..', 'data', 'receipts');
     fs.mkdirSync(receiptDir, { recursive: true });
     fs.writeFileSync(path.join(receiptDir, pdfFilename), req.file.buffer);
@@ -103,35 +110,76 @@ router.post('/', upload.single('receipt'), async (req, res) => {
     // ── Generate QR code ────────────────────────────────────────────────────
     let qrGenerated = false;
     let missingIban  = false;
+    let qrBuffer     = null;
 
-    if (wantsReimbursement) {
-      if (playerIban) {
-        const remittance = `Erstattung ${category} - ${opponent} ${matchNum} - ${nickname}`;
-        await generateQRCode({
-          iban: playerIban,
-          name: playerFullName,
-          amount: parseFloat(amount),
-          remittance,
-          filename: qrFilename,
+    // Generate QR whenever we have an IBAN for this nickname — the checkbox only
+    // controls the "Needs reimbursement" column, not QR creation.
+    if (playerIban) {
+      const remittance = `Erstattung ${category} - ${opponent} ${matchNum} - ${nickname}`;
+      const qrArgs = { iban: playerIban, name: playerFullName, amount: parseFloat(amount), remittance };
+      await generateQRCode({ ...qrArgs, filename: qrFilename });
+      qrBuffer = await generateQRBuffer(qrArgs);
+      qrGenerated = true;
+    } else if (wantsReimbursement) {
+      missingIban = true;
+    }
+
+    // ── Upload to Google Drive + append Sheet row ───────────────────────────
+    let receiptLink = '';
+    let qrLink      = '';
+    let sheetOk     = false;
+    let googleError = null;
+
+    if (googleEnabled) {
+      try {
+        const receiptFile = await googleApi.uploadReceipt({
+          buffer: req.file.buffer,
+          filename: pdfFilename,
+          opponent,
+          matchNum,
         });
-        qrGenerated = true;
-      } else {
-        missingIban = true;
+        receiptLink = receiptFile.webViewLink;
+
+        if (qrBuffer) {
+          const qrFile = await googleApi.uploadQRCode({ buffer: qrBuffer, filename: qrFilename });
+          qrLink = qrFile.webViewLink;
+        }
+
+        await googleApi.appendExpenseRow({
+          'Date':                date ? toGermanDate(date) : '',
+          'Description':         buildDescription({ category, nickname, carUsed, hotelName, rentalCompany, opponent, matchNum }),
+          'Category':            category === 'Umpire' ? 'Umpire' : 'Travel Cost',
+          'Paid By':             nickname,
+          'Sub-category':        category === 'Umpire' ? '' : category,
+          'Opponent':            opponent,
+          'Match':               matchNum,
+          'Price':               parseFloat(amount).toFixed(2),
+          'Receipt':             googleApi.hyperlink(receiptLink, pdfFilename),
+          'QR Code':             qrLink ? googleApi.hyperlink(qrLink, qrFilename) : '',
+          'Refunded to Sammy':   '',
+          'Note':                '',
+          'Submitted to club':   '',
+          'Needs reimbursement': wantsReimbursement ? 'YES' : 'NO',
+        });
+        sheetOk = true;
+      } catch (err) {
+        console.error('Google API error:', err.message);
+        googleError = err.message;
       }
     }
 
-    // ── Append CSV row ──────────────────────────────────────────────────────
+    // ── Local CSV (always — backup and fallback) ────────────────────────────
     appendRow({
       'Date':                date ? toGermanDate(date) : '',
-      'Description':         buildDescription({ category, nickname, hotelName, rentalCompany, opponent, matchNum }),
+      'Description':         buildDescription({ category, nickname, carUsed, hotelName, rentalCompany, opponent, matchNum }),
       'Category':            category === 'Umpire' ? 'Umpire' : 'Travel Cost',
       'Paid By':             nickname,
       'Sub-category':        category === 'Umpire' ? '' : category,
       'Opponent':            opponent,
       'Match':               matchNum,
       'Price':               parseFloat(amount).toFixed(2),
-      'Receipt':             pdfFilename,
-      'QR Code':             qrGenerated ? qrFilename : '',
+      'Receipt':             receiptLink || pdfFilename,
+      'QR Code':             qrLink || (qrGenerated ? qrFilename : ''),
       'Refunded to Sammy':   '',
       'Note':                '',
       'Submitted to club':   '',
@@ -143,12 +191,14 @@ router.post('/', upload.single('receipt'), async (req, res) => {
       wantsReimbursement,
       qrGenerated,
       missingIban,
+      sheetOk,
+      googleError,
     });
 
   } catch (err) {
     console.error('Submit error:', err);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
-});
+};
 
-module.exports = router;
+module.exports = [upload.single('receipt'), handler];

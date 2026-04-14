@@ -18,10 +18,10 @@ test('toGermanDate converts YYYY-MM-DD to DD.MM.YYYY', () => {
   assert.equal(toGermanDate('2026-01-02'), '02.01.2026');
 });
 
-test('buildDescription — Gas includes nickname and opponent', () => {
+test('buildDescription — Gas includes carUsed, nickname, and opponent', () => {
   assert.equal(
-    buildDescription({ category: 'Gas', nickname: 'Mo', opponent: 'Paderborn', matchNum: '1' }),
-    'Gas - Mo - Paderborn 1'
+    buildDescription({ category: 'Gas', nickname: 'Mo', carUsed: 'rental-flo', opponent: 'Paderborn', matchNum: '1' }),
+    'Gas - rental-flo - Mo - Paderborn 1'
   );
 });
 

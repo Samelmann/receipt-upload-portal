@@ -100,4 +100,4 @@ Route handlers and filesystem/network code are not unit-tested — keep them thi
 - Upload PDF to Google Drive `Ausgaben/receipts/<Opponent>/`
 - Upload QR PNG to Google Drive `Ausgaben/qr-codes/`
 - Put Drive share links in the Sheet's Receipt and QR Code columns (smartchips)
-- OAuth / service account setup for Google APIs
+- OAuth setup for Google APIs (`node scripts/oauth-setup.js`)

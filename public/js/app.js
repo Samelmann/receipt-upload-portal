@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
     nickname:         document.getElementById('nickname'),
     date:             document.getElementById('date'),
     category:         document.getElementById('category'),
+    carUsed:          document.getElementById('carUsed'),
     hotelName:        document.getElementById('hotelName'),
     rentalCompany:    document.getElementById('rentalCompany'),
     opponent:         document.getElementById('opponent'),
@@ -274,9 +275,11 @@ function hideUploadError() {
 function onCategoryChange() {
   const val = el.category.value;
 
+  toggle('field-carUsed',        val === 'Gas');
   toggle('field-hotelName',      val === 'Accommodation');
   toggle('field-rentalCompany',  val === 'Car Rental');
 
+  if (val !== 'Gas')           el.carUsed.value = '';
   if (val !== 'Accommodation') el.hotelName.value = '';
   if (val !== 'Car Rental')    el.rentalCompany.value = '';
 }
@@ -315,6 +318,9 @@ function validate() {
   ok = requireField(el.matchup,   'Please select a matchup.')             && ok;
   ok = requireAmount()                                                     && ok;
 
+  if (el.category.value === 'Gas') {
+    ok = requireField(el.carUsed,       'Please enter which car was used.')     && ok;
+  }
   if (el.category.value === 'Accommodation') {
     ok = requireField(el.hotelName,     'Please enter the hotel name.')       && ok;
   }
@@ -385,6 +391,7 @@ async function onSubmit(e) {
   formData.append('nickname',             el.nickname.value.trim());
   formData.append('date',                 el.date.value);
   formData.append('category',             el.category.value);
+  formData.append('carUsed',              el.carUsed.value.trim());
   formData.append('hotelName',            el.hotelName.value.trim());
   formData.append('rentalCompany',        el.rentalCompany.value.trim());
   formData.append('opponent',             opponentVal);
@@ -431,6 +438,13 @@ function showSuccess(data) {
     el.successMsg.textContent = 'Your expense has been recorded.';
   }
 
+  if (data.googleError || data.sheetOk === false) {
+    el.successMsg.textContent +=
+      '\n\n⚠ The expense sheet could not be updated automatically (' +
+      (data.googleError || 'unknown error') +
+      '). The receipt was saved, please tell Sammy so he can enter it manually.';
+  }
+
   el.successScreen.classList.remove('hidden');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -455,6 +469,7 @@ function resetAll() {
   el.date.value = new Date().toISOString().slice(0, 10);
 
   // Reset conditional fields
+  toggle('field-carUsed',       false);
   toggle('field-hotelName',     false);
   toggle('field-rentalCompany', false);
   toggle('field-opponentOther', false);

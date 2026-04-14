@@ -14,9 +14,9 @@ function toGermanDate(iso) {
 }
 
 /** Derive the Description (column B) from form data */
-function buildDescription({ category, nickname, hotelName, rentalCompany, opponent, matchNum }) {
+function buildDescription({ category, nickname, carUsed, hotelName, rentalCompany, opponent, matchNum }) {
   switch (category) {
-    case 'Gas':           return `Gas - ${nickname} - ${opponent} ${matchNum}`;
+    case 'Gas':           return `Gas - ${carUsed} - ${nickname} - ${opponent} ${matchNum}`;
     case 'Accommodation': return `${hotelName} - ${nickname}`;
     case 'Car Rental':    return `${rentalCompany} - ${nickname}`;
     case 'Umpire':        return `Umpire - ${opponent} ${matchNum}`;
