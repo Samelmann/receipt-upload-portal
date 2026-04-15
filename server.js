@@ -4,6 +4,7 @@ const path = require('path');
 
 const app = express();
 app.set('strict routing', true);
+app.set('trust proxy', 1);  // Behind Traefik — honour X-Forwarded-* headers
 const PORT = process.env.PORT || 3000;
 const SECRET_PATH = process.env.SECRET_PATH;
 
