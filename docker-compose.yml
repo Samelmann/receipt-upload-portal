@@ -11,21 +11,13 @@ services:
     networks:
       - proxy
     labels:
+      # Cloudflare Tunnel terminates HTTPS at the edge and forwards plain HTTP
+      # to Traefik, so we only need the `web` entrypoint — no TLS, no cert
+      # resolver, no HTTP→HTTPS redirect (Cloudflare handles that).
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-
-      # HTTPS router
       - "traefik.http.routers.receipts.rule=Host(`upload.samelmann.de`)"
-      - "traefik.http.routers.receipts.entrypoints=websecure"
-      - "traefik.http.routers.receipts.tls=true"
-      - "traefik.http.routers.receipts.tls.certresolver=letsencrypt"
-
-      # HTTP → HTTPS redirect router
-      - "traefik.http.routers.receipts-http.rule=Host(`upload.samelmann.de`)"
-      - "traefik.http.routers.receipts-http.entrypoints=web"
-      - "traefik.http.routers.receipts-http.middlewares=receipts-redirect"
-      - "traefik.http.middlewares.receipts-redirect.redirectscheme.scheme=https"
-
+      - "traefik.http.routers.receipts.entrypoints=web"
       - "traefik.http.services.receipts.loadbalancer.server.port=3000"
 
 networks:
