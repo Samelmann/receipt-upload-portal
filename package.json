@@ -8,7 +8,9 @@
     "dev": "nodemon server.js",
     "test": "node --test test/*.test.js",
     "sync-ibans": "node scripts/sync-ibans.js",
-    "replay-sheet": "node scripts/replay-sheet.js"
+    "replay-sheet": "node scripts/replay-sheet.js",
+    "backfill-drive": "node scripts/backfill-drive.js",
+    "backfill-qr": "node scripts/backfill-qr.js"
   },
   "dependencies": {
     "cropperjs": "^1.6.2",
