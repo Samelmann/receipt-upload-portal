@@ -9,3 +9,4 @@ config/
 npm-debug.log*
 .DS_Store
 Thumbs.db
+cloudflared-linux-amd64.deb
